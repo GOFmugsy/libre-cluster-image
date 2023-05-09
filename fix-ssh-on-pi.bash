@@ -231,7 +231,7 @@ fi
 rm "${working_dir}/~test"
 
 ###########
-# Decide which disto to use
+# Decide which distro to use
 #
 # generation can be either Legacy, or Current
 generation=$(echo ${generation} | tr '[:upper:]' '[:lower:]')
@@ -299,6 +299,14 @@ else
     echo_debug "Skipping check of sha256 of the downloaded image match as \"${downloaded_image}.sha256.ok\" file found."
   fi
 fi
+
+# Copy image - one per host in cluster
+echo_debug "Making a copy for each node:"
+for i in $(seq 1 ${cluster_nodes});
+do
+	echo_debug "Copy ${downloaded_image_path} to ${downloaded_image_path}${i}"
+	/usr/bin/cp ${downloaded_image_path} ${downloaded_image_path}${i}
+done
 
 ###########
 # Extract the image files
