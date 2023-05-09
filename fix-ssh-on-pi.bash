@@ -136,6 +136,8 @@ echo_debug "Finished loading the settings file \"${settings_file}\""
 # These variables need to be set in the settings file
 variables=(
   architecture
+  cluster_name
+  cluster_nodes
   debug
   first_boot
   generation
@@ -383,6 +385,8 @@ umount_sdcard "${sdcard_mount_p1}"
 losetup --verbose --detach ${loop_base}
 rmdir -v "${sdcard_mount_p1}"
 
+
+
 ###########
 # Mount and change boot partition P2 files
 #
@@ -440,6 +444,10 @@ WantedBy=multi-user.target" > "${sdcard_mount_p2}/lib/systemd/system/firstboot.s
 
 cd "${sdcard_mount_p2}/etc/systemd/system/multi-user.target.wants" && ln -s "/lib/systemd/system/firstboot.service" "./firstboot.service"
 cd -
+
+# Set hostname
+sed -i "s/raspberrypi/${cluster_name}1/g" ${sdcard_mount_p2}/etc/hosts
+sed -i "s/raspberrypi/${cluster_name}1/g" ${sdcard_mount_p2}/etc/hostname
 
 umount_sdcard "${sdcard_mount_p2}"
 losetup --verbose --detach ${loop_base}
