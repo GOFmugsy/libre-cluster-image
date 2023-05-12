@@ -302,172 +302,184 @@ fi
 
 # Copy image - one per host in cluster
 echo_debug "Making a copy for each node:"
-for i in $(seq 1 ${cluster_nodes});
+for i in $( seq 1 ${cluster_nodes} )
 do
-	echo_debug "Copy ${downloaded_image_path} to ${downloaded_image_path}${i}"
-	/usr/bin/cp ${downloaded_image_path} ${downloaded_image_path}${i}
+	copyto=$( echo "${downloaded_image_path}" | sed "s/\.xz/${i}\.xz/g" )
+	echo_debug "Iteration: ${i}"
+	echo_debug "Copy ${downloaded_image_path} to ${copyto}"
+	/usr/bin/cp ${downloaded_image_path} ${copyto}
 done
 
-###########
-# Extract the image files
-#
-extracted_image_path=$( echo "${downloaded_image_path}" | sed 's/\.xz//g' )
-extracted_image=$( basename ${extracted_image_path} )
-echo_debug "Extracting the image as \"${extracted_image_path}\""
-7z x -y "${downloaded_image_path}" -o"${working_dir}"
+echo_debug "Modifying images for cluster:"
+for i in $(seq 1 ${cluster_nodes})
+do
+	###########
+	# Extract the image files
+	#
+	downloaded_image_path=$( echo "${downloaded_image_path}" | sed "s/[0-9]\.xz/\.xz/" )
+	downloaded_image_path=$( echo "${downloaded_image_path}" | sed "s/\.xz/${i}\.xz/" )
+	extracted_image_path=$( echo "${downloaded_image_path}" | sed 's/\.xz//g' )
+	extracted_image=$( basename ${extracted_image_path} )
+	echo_debug "iteration: \"${i}\""
+	echo_debug "Extracting the image: \"${downloaded_image_path}\""
+	echo_debug "Extracting the image as \"${extracted_image_path}\""
+	echo_debug "Extracting the image to \"${working_dir}\""
+	echo_debug "Executing: \"7z x -y \"${downloaded_image_path}\" -o\"${working_dir}\""
+	7z x -y "${downloaded_image_path}" -o"${working_dir}"
 
-if [ ! -e "${extracted_image_path}" ]
-then
-    echo_error "Can't find the image \"${extracted_image_path}\""
-    exit 6
-fi
+	if [ ! -e "${extracted_image_path}" ]
+	then
+    		echo_error "Can't find the image \"${extracted_image_path}\""
+    		exit 6
+	fi
 
-###########
-# Mount and change boot partition P1 files
-#
-sdcard_mount_p1="${working_dir}/${extracted_image}_sdcard_mount_p1"
-if [ -d "${sdcard_mount_p1}" ]
-then
-  rmdir "${sdcard_mount_p1}"
-fi
+	###########
+	# Mount and change boot partition P1 files
+	#
+	sdcard_mount_p1="${working_dir}/${extracted_image}_sdcard_mount_p1"
+	if [ -d "${sdcard_mount_p1}" ]
+	then
+  		rmdir "${sdcard_mount_p1}"
+	fi
 
-if [ -d "${sdcard_mount_p1}" ]
-then
-  echo_debug "Cannot remove the old mount point \"${sdcard_mount_p1}\""
-  exit 20
-fi
-mkdir -v "${sdcard_mount_p1}"
+	if [ -d "${sdcard_mount_p1}" ]
+	then
+  		echo_debug "Cannot remove the old mount point \"${sdcard_mount_p1}\""
+  		exit 20
+	fi
+	mkdir -v "${sdcard_mount_p1}"
 
-echo_debug "Mounting the sdcard boot disk \"${sdcard_mount_p1}\""
+	echo_debug "Mounting the sdcard boot disk \"${sdcard_mount_p1}\""
 
-loop_base=$( losetup --partscan --find --show "${extracted_image_path}" )
+	loop_base=$( losetup --partscan --find --show "${extracted_image_path}" )
 
-echo_debug "Mounting \"${loop_base}p1\" to \"${sdcard_mount_p1}\" "
-mount ${loop_base}p1 "${sdcard_mount_p1}"
-if [ ! -d "${sdcard_mount_p1}/overlays" ]
-then
-  echo_error "Can't find the mounted card \"${sdcard_mount_p1}\""
-  exit 7
-fi
+	echo_debug "Mounting \"${loop_base}p1\" to \"${sdcard_mount_p1}\" "
+	mount ${loop_base}p1 "${sdcard_mount_p1}"
+	if [ ! -d "${sdcard_mount_p1}/overlays" ]
+	then
+  		echo_error "Can't find the mounted card \"${sdcard_mount_p1}\""
+  		exit 7
+	fi
 
-cp "${userconf_txt_file}" "${sdcard_mount_p1}/userconf.txt"
-if [ -e "${sdcard_mount_p1}/userconf.txt" ]
-then
-  echo_debug "The userconf.txt file \"${userconf_txt_file}\" has been copied"
-else
-  echo_error "Can't find the userconf.txt file \"${sdcard_mount_p1}/userconf.txt\""
-  exit 22
-fi
+	cp "${userconf_txt_file}" "${sdcard_mount_p1}/userconf.txt"
+	if [ -e "${sdcard_mount_p1}/userconf.txt" ]
+	then
+  		echo_debug "The userconf.txt file \"${userconf_txt_file}\" has been copied"
+	else
+  		echo_error "Can't find the userconf.txt file \"${sdcard_mount_p1}/userconf.txt\""
+  		exit 22
+	fi
 
-cp "${wifi_file}" "${sdcard_mount_p1}/wpa_supplicant.conf"
-if [ -e "${sdcard_mount_p1}/wpa_supplicant.conf" ]
-then
-  echo_debug "The wifi file \"${wifi_file}\" has been copied"
-else
-  echo_error "Can't find the wpa_supplicant file \"${sdcard_mount_p1}/wpa_supplicant.conf\""
-  exit 8
-fi
+	cp "${wifi_file}" "${sdcard_mount_p1}/wpa_supplicant.conf"
+	if [ -e "${sdcard_mount_p1}/wpa_supplicant.conf" ]
+	then
+  		echo_debug "The wifi file \"${wifi_file}\" has been copied"
+	else
+  		echo_error "Can't find the wpa_supplicant file \"${sdcard_mount_p1}/wpa_supplicant.conf\""
+  		exit 8
+	fi
 
-touch "${sdcard_mount_p1}/ssh"
-if [ -e "${sdcard_mount_p1}/ssh" ]
-then
-  echo_debug "The ssh config file has been copied"
-else
-  echo_error "Can't find the ssh file \"${sdcard_mount_p1}/ssh\""
-  exit 9
-fi
+	touch "${sdcard_mount_p1}/ssh"
+	if [ -e "${sdcard_mount_p1}/ssh" ]
+	then
+  		echo_debug "The ssh config file has been copied"
+	else
+  		echo_error "Can't find the ssh file \"${sdcard_mount_p1}/ssh\""
+  		exit 9
+	fi
 
-if [ -e "${first_boot}" ]
-then
-  cp "${first_boot}" "${sdcard_mount_p1}/firstboot.sh"
-  if [ -e "${sdcard_mount_p1}/firstboot.sh" ]
-  then
-    echo_debug "The first boot script been copied"
-  else
-    echo_error "Can't find the first boot script file \"${sdcard_mount_p1}/firstboot.sh\""
-    exit 19
-  fi
-fi
+	if [ -e "${first_boot}" ]
+	then
+  		cp "${first_boot}" "${sdcard_mount_p1}/firstboot.sh"
+  		if [ -e "${sdcard_mount_p1}/firstboot.sh" ]
+  		then
+    			echo_debug "The first boot script been copied"
+  		else
+    			echo_error "Can't find the first boot script file \"${sdcard_mount_p1}/firstboot.sh\""
+    			exit 19
+  		fi
+	fi
 
-umount_sdcard "${sdcard_mount_p1}"
-losetup --verbose --detach ${loop_base}
-rmdir -v "${sdcard_mount_p1}"
+	umount_sdcard "${sdcard_mount_p1}"
+	losetup --verbose --detach ${loop_base}
+	rmdir -v "${sdcard_mount_p1}"
 
 
 
-###########
-# Mount and change boot partition P2 files
-#
-sdcard_mount_p2="${working_dir}/${extracted_image}_sdcard_mount_p2"
+	###########
+	# Mount and change boot partition P2 files
+	#
+	sdcard_mount_p2="${working_dir}/${extracted_image}_sdcard_mount_p2"
 
-if [ -d "${sdcard_mount_p2}" ]
-then
-  rmdir "${sdcard_mount_p2}"
-fi
+	if [ -d "${sdcard_mount_p2}" ]
+	then
+  		rmdir "${sdcard_mount_p2}"
+	fi
 
-if [ -d "${sdcard_mount_p2}" ]
-then
-  echo_debug "Cannot remove the old mount point \"${sdcard_mount_p2}\""
-  exit 18
-fi
-mkdir -v "${sdcard_mount_p2}"
+	if [ -d "${sdcard_mount_p2}" ]
+	then
+  		echo_debug "Cannot remove the old mount point \"${sdcard_mount_p2}\""
+  		exit 18
+	fi
+	mkdir -v "${sdcard_mount_p2}"
 
-echo_debug "Mounting the sdcard root disk \"${sdcard_mount_p2}\""
+	echo_debug "Mounting the sdcard root disk \"${sdcard_mount_p2}\""
 
-loop_base=$( losetup --partscan --find --show "${extracted_image_path}" )
+	loop_base=$( losetup --partscan --find --show "${extracted_image_path}" )
 
-echo_debug "Mounting \"${loop_base}p2\" to \"${sdcard_mount_p2}\" "
-mount ${loop_base}p2 "${sdcard_mount_p2}"
-if [ ! -e "${sdcard_mount_p2}/etc/shadow" ]
-then
-    echo_error "Can't find the mounted card\"${sdcard_mount_p2}/etc/shadow\""
-    exit 10
-fi
+	echo_debug "Mounting \"${loop_base}p2\" to \"${sdcard_mount_p2}\" "
+	mount ${loop_base}p2 "${sdcard_mount_p2}"
+	if [ ! -e "${sdcard_mount_p2}/etc/shadow" ]
+	then
+    		echo_error "Can't find the mounted card\"${sdcard_mount_p2}/etc/shadow\""
+    		exit 10
+	fi
 
-echo_debug "Change the passwords and sshd_config file"
+	echo_debug "Change the passwords and sshd_config file"
 
-sed -e "s#^root:[^:]\+:#root:${root_password_hash}:#" "${sdcard_mount_p2}/etc/shadow" -e  "s#^pi:[^:]\+:#pi:${pi_password_hash}:#" -i "${sdcard_mount_p2}/etc/shadow"
-sed -e 's;^#PasswordAuthentication.*$;PasswordAuthentication no;g' -e 's;^PermitRootLogin .*$;PermitRootLogin no;g' -i "${sdcard_mount_p2}/etc/ssh/sshd_config"
-mkdir "${sdcard_mount_p2}/home/pi/.ssh"
-chmod 0700 "${sdcard_mount_p2}/home/pi/.ssh"
-chown 1000:1000 "${sdcard_mount_p2}/home/pi/.ssh"
-cat ${public_key_file} >> "${sdcard_mount_p2}/home/pi/.ssh/authorized_keys"
-chown 1000:1000 "${sdcard_mount_p2}/home/pi/.ssh/authorized_keys"
-chmod 0600 "${sdcard_mount_p2}/home/pi/.ssh/authorized_keys"
+	sed -e "s#^root:[^:]\+:#root:${root_password_hash}:#" "${sdcard_mount_p2}/etc/shadow" -e  "s#^pi:[^:]\+:#pi:${pi_password_hash}:#" -i "${sdcard_mount_p2}/etc/shadow"
+	sed -e 's;^#PasswordAuthentication.*$;PasswordAuthentication no;g' -e 's;^PermitRootLogin .*$;PermitRootLogin no;g' -i "${sdcard_mount_p2}/etc/ssh/sshd_config"
+	mkdir "${sdcard_mount_p2}/home/pi/.ssh"
+	chmod 0700 "${sdcard_mount_p2}/home/pi/.ssh"
+	chown 1000:1000 "${sdcard_mount_p2}/home/pi/.ssh"
+	cat ${public_key_file} >> "${sdcard_mount_p2}/home/pi/.ssh/authorized_keys"
+	chown 1000:1000 "${sdcard_mount_p2}/home/pi/.ssh/authorized_keys"
+	chmod 0600 "${sdcard_mount_p2}/home/pi/.ssh/authorized_keys"
 
-echo "[Unit]
-Description=FirstBoot
-After=network.target
-Before=rc-local.service
-ConditionFileNotEmpty=/boot/firstboot.sh
+	echo "[Unit]
+	Description=FirstBoot
+	After=network.target
+	Before=rc-local.service
+	ConditionFileNotEmpty=/boot/firstboot.sh
 
-[Service]
-ExecStart=/boot/firstboot.sh
-ExecStartPost=/bin/mv /boot/firstboot.sh /boot/firstboot.sh.done
-Type=oneshot
-RemainAfterExit=no
+	[Service]
+	ExecStart=/boot/firstboot.sh
+	ExecStartPost=/bin/mv /boot/firstboot.sh /boot/firstboot.sh.done
+	Type=oneshot
+	RemainAfterExit=no
 
-[Install]
-WantedBy=multi-user.target" > "${sdcard_mount_p2}/lib/systemd/system/firstboot.service"
+	[Install]
+	WantedBy=multi-user.target" > "${sdcard_mount_p2}/lib/systemd/system/firstboot.service"
 
-cd "${sdcard_mount_p2}/etc/systemd/system/multi-user.target.wants" && ln -s "/lib/systemd/system/firstboot.service" "./firstboot.service"
-cd -
+	cd "${sdcard_mount_p2}/etc/systemd/system/multi-user.target.wants" && ln -s "/lib/systemd/system/firstboot.service" "./firstboot.service"
+	cd -
 
-# Set hostname
-sed -i "s/raspberrypi/${cluster_name}1/g" ${sdcard_mount_p2}/etc/hosts
-sed -i "s/raspberrypi/${cluster_name}1/g" ${sdcard_mount_p2}/etc/hostname
+	# Set hostname
+	sed -i "s/raspberrypi/${cluster_name}${i}/g" ${sdcard_mount_p2}/etc/hosts
+	sed -i "s/raspberrypi/${cluster_name}${i}/g" ${sdcard_mount_p2}/etc/hostname
 
-umount_sdcard "${sdcard_mount_p2}"
-losetup --verbose --detach ${loop_base}
-rmdir -v "${sdcard_mount_p2}"
+	umount_sdcard "${sdcard_mount_p2}"
+	losetup --verbose --detach ${loop_base}
+	rmdir -v "${sdcard_mount_p2}"
 
-###########
-# Cleanup and end
-#
-new_name="${extracted_image_path%.*}-ssh-enabled.img"
-mv -v "${extracted_image_path}" "${new_name}"
+	###########
+	# Cleanup and end
+	#
+	new_name="${extracted_image_path%.*}-ssh-enabled${i}.img"
+	mv -v "${extracted_image_path}" "${new_name}"
 
-echo_debug ""
-echo_debug "Now you can burn the disk using something like:"
-echo_debug "      dd bs=4M status=progress if=${new_name} of=/dev/mmcblk????"
-echo_debug ""
+	echo_debug ""
+	echo_debug "Now you can burn the disk using something like:"
+	echo_debug "      dd bs=4M status=progress if=${new_name} of=/dev/mmcblk????"
+	echo_debug ""
+done
