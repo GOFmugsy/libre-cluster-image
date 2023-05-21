@@ -135,14 +135,11 @@ echo_debug "Finished loading the settings file \"${settings_file}\""
 
 # These variables need to be set in the settings file
 variables=(
-  architecture
   cluster_name
   cluster_nodes
   debug
   first_boot
-  generation
-  os_version
-  pi_password_hash
+  # pi_password_hash
   public_key_file
   root_password_hash
   wifi_file
@@ -172,7 +169,7 @@ then
   done
 fi
 
-echo_debug "Requesting  \"${generation}\", \"${os_version}\", \"${architecture}\" "
+# echo_debug "Requesting  \"${generation}\", \"${os_version}\", \"${architecture}\" "
 
 if [ ! -e "${userconf_txt_file}" ]
 then
@@ -230,34 +227,10 @@ then
 fi
 rm "${working_dir}/~test"
 
-###########
-# Decide which distro to use
-#
-# generation can be either Legacy, or Current
-generation=$(echo ${generation} | tr '[:upper:]' '[:lower:]')
-if [ "${generation}" == "legacy" ]
-then
-  generation_path="oldstable_"
-else
-  generation_path=""
-fi
-
-# version can be either Lite, Medium, or Full
-os_version=$(echo ${os_version} | tr '[:upper:]' '[:lower:]')
-if [ "${os_version}" == "medium" ]
-then
-  os_version_path=""
-else
-  os_version_path="${os_version}_"
-fi
-
-# architecture can be either armhf, or arm64
-architecture=$(echo ${architecture} | tr '[:upper:]' '[:lower:]')
-
-shortcut_url="${download_site}/raspios_${generation_path}${os_version_path}${architecture}_latest"
+shortcut_url="${image}"
 shortcut_url_response=$( curl --silent "${shortcut_url}" --head )
 # find the redirect url and remove color formatting
-download_url=$( echo "${shortcut_url_response}" | grep location | sed -e 's/^.*https:/https:/g' -e 's/xz.*$/xz/g' )
+download_url=$( echo "${shortcut_url_response}" | grep Location | sed -e 's/^.*https:/https:/g' -e 's/xz.*$/xz/g' )
 
 ###########
 # Download the image and checksum files
@@ -283,21 +256,21 @@ else
   else
     curl --continue-at - "${download_url}" --output "${downloaded_image_path}"
   fi
-  if [ ! -f "${downloaded_image_path}.sha256.ok" ]
-  then
-    echo_debug "Checking to see if the sha256 of the downloaded image match \"${downloaded_image}.sha256\""
-    curl --silent "${download_url}.sha256" --output "${downloaded_image_path}.sha256"
-    if [ "$( grep -c "$( sha256sum "${downloaded_image_path}" | awk '{print $1}' )" "${downloaded_image_path}.sha256" )" -eq "1" ]
-    then
-        echo_debug "The sha256 match \"${downloaded_image}.sha256\""
-        mv "${downloaded_image_path}.sha256" "${downloaded_image_path}.sha256.ok"
-    else
-        echo_error "The sha256 did not match \"${downloaded_image}.sha256\""
-        exit 5
-    fi
-  else
-    echo_debug "Skipping check of sha256 of the downloaded image match as \"${downloaded_image}.sha256.ok\" file found."
-  fi
+  # if [ ! -f "${downloaded_image_path}.sha256.ok" ]
+  # then
+    # echo_debug "Checking to see if the sha256 of the downloaded image match \"${downloaded_image}.sha256\""
+    # curl --silent "${download_url}.sha256" --output "${downloaded_image_path}.sha256"
+    # if [ "$( grep -c "$( sha256sum "${downloaded_image_path}" | awk '{print $1}' )" "${downloaded_image_path}.sha256" )" -eq "1" ]
+    # then
+        # echo_debug "The sha256 match \"${downloaded_image}.sha256\""
+        # mv "${downloaded_image_path}.sha256" "${downloaded_image_path}.sha256.ok"
+    # else
+        # echo_error "The sha256 did not match \"${downloaded_image}.sha256\""
+        # exit 5
+    # fi
+  # else
+    # echo_debug "Skipping check of sha256 of the downloaded image match as \"${downloaded_image}.sha256.ok\" file found."
+  # fi
 fi
 
 # Copy image - one per host in cluster
@@ -437,7 +410,7 @@ do
 
 	echo_debug "Change the passwords and sshd_config file"
 
-	sed -e "s#^root:[^:]\+:#root:${root_password_hash}:#" "${sdcard_mount_p2}/etc/shadow" -e  "s#^pi:[^:]\+:#pi:${pi_password_hash}:#" -i "${sdcard_mount_p2}/etc/shadow"
+	# sed -e "s#^root:[^:]\+:#root:${root_password_hash}:#" "${sdcard_mount_p2}/etc/shadow" -e  "s#^pi:[^:]\+:#pi:${pi_password_hash}:#" -i "${sdcard_mount_p2}/etc/shadow"
 	sed -e 's;^#PasswordAuthentication.*$;PasswordAuthentication no;g' -e 's;^PermitRootLogin .*$;PermitRootLogin no;g' -i "${sdcard_mount_p2}/etc/ssh/sshd_config"
 	mkdir "${sdcard_mount_p2}/home/pi/.ssh"
 	chmod 0700 "${sdcard_mount_p2}/home/pi/.ssh"
